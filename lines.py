@@ -126,6 +126,24 @@ class GameWindow(QMainWindow):
         self.reset_map()
         self.show()
 
+    def add_variant(self, active_x, active_y, x, y):
+        possible_cell = self.cells.get_by_coord(x, y)
+
+        if not possible_cell.marked and not possible_cell.color \
+                and not (x == active_x and y == active_y) \
+                and (x, y) not in self.board['way_variants']['used']:
+            self.board['way_variants']['actual'].append((x, y))
+
+    def make_variants(self, current_x, current_y, active_x, active_y, by='all'):
+        if current_y - 1 >= 0 and by in {'x', 'all'}:
+            self.add_variant(active_x, active_y, current_x, current_y - 1)
+        if current_y + 1 <= (MAP_WIDTH - 1) and by in {'x', 'all'}:
+            self.add_variant(active_x, active_y, current_x, current_y + 1)
+        if current_x - 1 >= 0 and by in {'y', 'all'}:
+            self.add_variant(active_x, active_y, current_x - 1, current_y)
+        if current_x + 1 <= (MAP_WIDTH - 1) and by in {'y', 'all'}:
+            self.add_variant(active_x, active_y, current_x + 1, current_y)
+
     def is_allow_to_move(self, active_x, active_y, to_move_x, to_move_y):
         current_x = active_x
         current_y = active_y
@@ -137,30 +155,17 @@ class GameWindow(QMainWindow):
                 next_cell = self.cells.get_by_coord(next_x, current_y)
 
                 if next_cell.color and not (next_cell.x == to_move_x and next_cell.y == to_move_y):
-                    if current_y - 1 >= 0:
-                        possible_cell = self.cells.get_by_coord(current_x, current_y - 1)
-                        if not possible_cell.marked and not possible_cell.color \
-                                and not(current_x == active_x and current_y - 1 == active_y)\
-                                and (current_x, current_y - 1) not in self.board['way_variants']['used']:
-                            self.board['way_variants']['actual'].append((current_x, current_y - 1))
-
-                    if current_y + 1 <= MAP_WIDTH:
-                        possible_cell = self.cells.get_by_coord(current_x, current_y + 1)
-                        if not possible_cell.marked and not possible_cell.color \
-                                and not(current_x == active_x and current_y + 1 == active_y)\
-                                and (current_x, current_y + 1) not in self.board['way_variants']['used']:
-                            self.board['way_variants']['actual'].append((current_x, current_y + 1))
-
+                    self.make_variants(current_x, current_y, active_x, active_y, by='x')
                     if not len(self.board['way_variants']['actual']):
                         return False
-
-                    if (active_x, active_y) in self.board['way_variants']['actual']:
+                    elif (active_x, active_y) in self.board['way_variants']['actual']:
                         self.board['way_variants']['actual'].remove((active_x, active_y))
                         self.board['way_variants']['used'].append((active_x, active_y))
+                    if len(self.board['way_variants']['actual']):
+                        return self.check_variants(to_move_x, to_move_y)
                 else:
                     next_cell.marked = True
                     current_x = next_x
-                    continue
                     #next_cell.color = colors[0]
 
             if current_y != to_move_y:
@@ -168,38 +173,30 @@ class GameWindow(QMainWindow):
                 next_cell = self.cells.get_by_coord(current_x, next_y)
 
                 if next_cell.color and not (next_cell.x == to_move_x and next_cell.y == to_move_y):
-                    if current_x - 1 >= 0:
-                        possible_cell = self.cells.get_by_coord(current_x - 1, current_y)
-                        if not possible_cell.marked and not possible_cell.color\
-                                and not(current_x - 1 == active_x and current_y == active_y)\
-                                and (current_x - 1, current_y) not in self.board['way_variants']['used']:
-                            self.board['way_variants']['actual'].append((current_x - 1, current_y))
-                    if current_x + 1 <= MAP_WIDTH:
-                        possible_cell = self.cells.get_by_coord(current_x + 1, current_y)
-                        if not possible_cell.marked and not possible_cell.color \
-                                and not(current_x + 1 == active_x and current_y == active_y)\
-                                and (current_x + 1, current_y) not in self.board['way_variants']['used']:
-                            self.board['way_variants']['actual'].append((current_x + 1, current_y))
+                    self.make_variants(current_x, current_y, active_x, active_y, by='y')
                     if not len(self.board['way_variants']['actual']):
                         return False
                     if (active_x, active_y) in self.board['way_variants']['actual']:
                         self.board['way_variants']['actual'].remove((active_x, active_y))
                         self.board['way_variants']['used'].append((active_x, active_y))
+                    if len(self.board['way_variants']['actual']):
+                        return self.check_variants(to_move_x, to_move_y)
                 else:
                     next_cell.marked = True
                     current_y = next_y
-                    continue
+            self.make_variants(current_x, current_y, active_x, active_y, by='all')
                     #next_cell.color = colors[0]
-            if self.board['way_variants']['actual']:
-                for v_x, v_y in self.board['way_variants']['actual']:
-                    if self.is_allow_to_move(v_x, v_y, to_move_x, to_move_y):
-                        return True
-                return False
-            return True
 
         self.update_map(demark=True)
         self.board['way_variants'] = {'actual': [], 'used': []}
         return True
+
+    def check_variants(self, to_move_x, to_move_y):
+        if self.board['way_variants']['actual']:
+            for v_x, v_y in self.board['way_variants']['actual']:
+                if self.is_allow_to_move(v_x, v_y, to_move_x, to_move_y):
+                    return True
+            return False
 
     def click_hook(self, *args):
         active_cell = self.cells.get_active()
@@ -220,6 +217,7 @@ class GameWindow(QMainWindow):
             else:
                 print('disallowed')
                 to_move.state = None
+                self.update_map(demark=True)
                 pass
 
     @staticmethod
@@ -344,6 +342,8 @@ class GameWindow(QMainWindow):
     def update_map(self, demark=False):
         self.scoreBoard.setText(f'{self.board["score"]}')
         self.cells.update_cells(demark=demark)
+        if demark:
+            self.board['way_variants'] = {'actual': [], 'used': []}
 
 
 if __name__ == '__main__':
