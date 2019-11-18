@@ -131,7 +131,8 @@ class GameWindow(QMainWindow):
 
         if not possible_cell.marked and not possible_cell.color \
                 and not (x == active_x and y == active_y) \
-                and (x, y) not in self.board['way_variants']['used']:
+                and (x, y) not in self.board['way_variants']['used']\
+                and (x, y) not in self.board['way_variants']['actual']:
             self.board['way_variants']['actual'].append((x, y))
 
     def make_variants(self, current_x, current_y, active_x, active_y, by='all'):
@@ -150,6 +151,7 @@ class GameWindow(QMainWindow):
 
         while current_x != to_move_x or current_y != to_move_y:
             # todo merge this two methods
+            self.make_variants(current_x, current_y, active_x, active_y, by='all')
             if current_x != to_move_x:
                 next_x = current_x + 1 if current_x < to_move_x else current_x - 1
                 next_cell = self.cells.get_by_coord(next_x, current_y)
@@ -184,7 +186,7 @@ class GameWindow(QMainWindow):
                 else:
                     next_cell.marked = True
                     current_y = next_y
-            self.make_variants(current_x, current_y, active_x, active_y, by='all')
+
                     #next_cell.color = colors[0]
 
         self.update_map(demark=True)
