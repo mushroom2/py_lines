@@ -68,20 +68,42 @@ class GameCell(QWidget):
     def refresh(self):
         self.update()
 
-    def turn(self):
-        pass
+
+class PredictCell(QWidget):
+    def __init__(self, color, *args, **kwargs):
+        super(PredictCell, self).__init__(*args, **kwargs)
+        self.setFixedSize(QSize(15, 15))
+        self.color = color
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        r = event.rect()
+        outer, inner = Qt.black, self.color
+
+        p.fillRect(r, QBrush(inner))
+
+    def reset(self):
+        self.update()
 
 
 class CellStore(list):
     def get_empty_cells(self):
         return [i for i in self if not i.color]
 
-    def set_color(self):
-        target_color = colors[random.randint(0, len(colors) - 1)]
+    def set_color(self, *args):
+        target_color = colors[random.randint(0, len(colors) - 1)] if not args else args[0]
         empty_cells = self.get_empty_cells()
-        random.shuffle(empty_cells)
-        print(empty_cells[0].x, empty_cells[0].y)
-        empty_cells[0].color = target_color
+        if len(empty_cells):
+            random.shuffle(empty_cells)
+            print(empty_cells[0].x, empty_cells[0].y)
+            empty_cells[0].color = target_color
+
+    def clear_cells(self):
+        for i in self:
+            i.color = None
+            i.marked = None
+            i.state = None
 
     # todo merge to 1 function
     def get_active(self):
@@ -114,7 +136,15 @@ class GameWindow(QMainWindow):
         hb = QHBoxLayout()
         self.scoreBoard = QLabel()
         self.scoreBoard.setText(f'{self.board["score"]}')
+        self.predict_cells = [
+            PredictCell(colors[random.randint(0, len(colors) - 1)]) for _ in range(3)
+        ]
         hb.addWidget(self.scoreBoard)
+        for cell in self.predict_cells:
+            hb.addWidget(cell)
+        self.reset_btn = QPushButton('reset')
+        self.reset_btn.clicked.connect(self.full_reset)
+        hb.addWidget(self.reset_btn)
         self.grid = QGridLayout()
         self.grid.setSpacing(1)
 
@@ -125,6 +155,15 @@ class GameWindow(QMainWindow):
         self.init_map()
         self.reset_map()
         self.show()
+
+    def full_reset(self):
+        print('clicked')
+        self.cells.clear_cells()
+        self.board['score'] = 0
+        for cell in self.predict_cells:
+            cell.color = colors[random.randint(0, len(colors) - 1)]
+            cell.reset()
+        self.new_turn(init=True)
 
     def add_variant(self, active_x, active_y, x, y):
         possible_cell = self.cells.get_by_coord(x, y)
@@ -328,11 +367,17 @@ class GameWindow(QMainWindow):
                 c.clicked.connect(self.click_hook)
                 c.pre_clicked.connect(self.pre_click_hook)
                 c.refreshed.connect(self.update_map)
-        self.new_turn()
+        self.new_turn(init=True)
 
-    def new_turn(self):
-        for i in range(3):
-            self.cells.set_color()
+    def new_turn(self, init=False):
+        if init:
+            for i in range(3):
+                self.cells.set_color()
+        else:
+            for cell in self.predict_cells:
+                self.cells.set_color(cell.color)
+                cell.color = colors[random.randint(0, len(colors) - 1)]
+                cell.reset()
         self.update_map()
 
     def reset_map(self):
