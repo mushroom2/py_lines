@@ -33,10 +33,8 @@ class GameCell(QWidget):
         self.color = color
         self.state = None
         self.marked = None
-        print(f'created {x} {y}')
 
     def click(self):
-        print(self.x, self.y)
         if self.color:
             self.state = ACTIVE
         else:
@@ -96,7 +94,6 @@ class CellStore(list):
         empty_cells = self.get_empty_cells()
         if len(empty_cells):
             random.shuffle(empty_cells)
-            print(empty_cells[0].x, empty_cells[0].y)
             empty_cells[0].color = target_color
 
     def clear_cells(self):
@@ -126,7 +123,12 @@ class CellStore(list):
 
 class GameWindow(QMainWindow):
     cells = CellStore()
-    board = {'prev_active': None, 'allow_turn': False, 'score': 0, 'way_variants': {'actual': [], 'used': []}}
+    board = {
+        'prev_active': None,
+        'allow_turn': False,
+        'score': 0,
+        'way_variants': {'actual': [], 'used': []}
+    }
 
     def __init__(self, *args, **kwargs):
         super(GameWindow, self).__init__(*args, **kwargs)
@@ -142,9 +144,12 @@ class GameWindow(QMainWindow):
         hb.addWidget(self.scoreBoard)
         for cell in self.predict_cells:
             hb.addWidget(cell)
-        self.reset_btn = QPushButton('reset')
+        self.reset_btn = QPushButton('Restart')
         self.reset_btn.clicked.connect(self.full_reset)
         hb.addWidget(self.reset_btn)
+        self.help_btn = QPushButton('Help')
+        self.help_btn.clicked.connect(self.show_popup)
+        hb.addWidget(self.help_btn)
         self.grid = QGridLayout()
         self.grid.setSpacing(1)
 
@@ -157,13 +162,11 @@ class GameWindow(QMainWindow):
         self.show()
 
     def full_reset(self):
-        print('clicked')
+
         self.cells.clear_cells()
         self.board['score'] = 0
-        for cell in self.predict_cells:
-            cell.color = colors[random.randint(0, len(colors) - 1)]
-            cell.reset()
-        self.new_turn(init=True)
+        self.cells.clear()
+        self.init_map()
 
     def add_variant(self, active_x, active_y, x, y):
         possible_cell = self.cells.get_by_coord(x, y)
@@ -256,7 +259,6 @@ class GameWindow(QMainWindow):
                 if self.analyze(to_move.x, to_move.y, to_move.color):
                     self.new_turn()
             else:
-                print('disallowed')
                 to_move.state = None
                 self.update_map(demark=True)
                 pass
@@ -293,9 +295,7 @@ class GameWindow(QMainWindow):
         if buff:
             res.append(buff)
         res.sort(key=lambda x: len(x), reverse=True)
-        print(res)
         if len(res[0]) >= 5:
-            # todo do smt with len row to combo score
             return [inp.index(i) for i in res[0]]
 
     def analyze(self, _x, _y, _color) -> bool:
@@ -346,7 +346,6 @@ class GameWindow(QMainWindow):
         return True
 
     def pre_click_hook(self):
-        # check to switch
         active_cell = self.cells.get_active()
         if active_cell:
             self.board['prev_active'] = active_cell
@@ -391,6 +390,21 @@ class GameWindow(QMainWindow):
         self.cells.update_cells(demark=demark)
         if demark:
             self.board['way_variants'] = {'actual': [], 'used': []}
+
+    def show_popup(self):
+        rules = """When Color Lines game starts, you are presented with the game board that has 81 (9×9) squares (cells).\n
+        Move the cells from cell to cell to group them into the lines of the same color.\n
+        However, after each of your moves the computer drops three more cells onto the board. To avoid filling up the board you should gather the cells into lines of 5 or more cells. When such a line is complete, the cells are removed from the field and your score grows.\n
+        You can create lines of cells by vertical, horizontal and two diagonals \n
+        The new cells will not be added to the field after a line removal. Instead you will be rewarded with yet another move before a new triplet of cells is added.\n
+        """
+        msg = QMessageBox()
+        msg.setWindowTitle("Help")
+        msg.setText("The Lines Game rules")
+        msg.setIcon(QMessageBox.Information)
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.setInformativeText(rules)
+        msg.exec_()
 
 
 if __name__ == '__main__':
